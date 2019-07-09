@@ -1,0 +1,124 @@
+<html>
+	<head>
+		<title>redux</title>
+		<meta charset='utf-8'>
+		<script src='https://unpkg.com/redux@latest/dist/redux.min.js'></script>
+		<script>
+			// redux-thunk 中间件
+			(() => {
+				function createThunkMiddleware(extraArgument) {
+					return function (_ref) {
+						var dispatch = _ref.dispatch,
+						    getState = _ref.getState
+						return function (next) {
+							return function (action) {
+								if (typeof action === 'function') {
+									return action(dispatch, getState, extraArgument)
+								}
+
+								return next(action)
+							}
+						}
+					}
+				}
+
+				var thunk = createThunkMiddleware()
+				thunk.withExtraArgument = createThunkMiddleware
+				
+				window.thunk = thunk	// 导出到window
+			})()
+		</script>
+	</head>
+
+	<body>
+		<div>
+			<p>
+				计数：<span id="value">0</span>
+				<button id="increment">x+</button>
+				<button id="decrement">x-</button>
+				<button id="incrementAsync">异步x+</button>
+				<span id="asyncMsg"></span>
+			</p>
+		</div>
+
+		<script>
+			const 
+				valueEl = document.getElementById('value'),
+				asyncMsgEl = document.getElementById('asyncMsg'),
+				incrementEl = document.getElementById('increment'),
+				decrementEl = document.getElementById('decrement'),
+				incrementAsyncEl = document.getElementById('incrementAsync')
+			
+
+			// reducer纯函数
+			// 拆分reducer x由counterX管理
+			function counter(state = 0, action) {
+				switch(action.type) {
+					case 'INCREAMENT':
+						return state + 1
+					case 'DECREAMENT':
+						return state - 1
+					default:
+						return state
+				}
+			}
+
+			function asyncMsg(state = '异步请求完成', action) {
+				switch(action.type) {
+					case 'ASYNCING':
+						return '正在异步请求'
+					case 'ASYNCEND':
+						return '异步请求完成'
+					default:
+						return state
+				}
+			}
+			// 合并reducer
+			const reducer = Redux.combineReducers({
+				x: counter,
+				asyncMsg
+			})
+
+
+			// 创建store 使用reducer做参数, 中间件以redux-thunk为例
+			const store = Redux.createStore(reducer, Redux.applyMiddleware(thunk))
+			
+			// 监听事件触发 store.dispatch(action)
+			// 同步
+			incrementEl.addEventListener('click', function() {
+				store.dispatch({ type: 'INCREAMENT' })
+			}, false)
+
+			decrementEl.addEventListener('click', function() {
+				store.dispatch({ type: 'DECREAMENT' })
+			}, false)
+			
+			// 异步操作函数 要传入dispatch和getState
+			function AsyncMethod(dispatch, getState) {
+				dispatch({ type: 'ASYNCING' })
+				return new Promise((resolve, reject) => {
+					setTimeout(function() {
+						resolve('success')
+					}, 1000)
+				}).then((msg) => {
+					dispatch({ type: 'ASYNCEND' })
+					dispatch({ type: 'INCREAMENT' })
+				}, (err) => {
+					dispatch({ type: 'ASYNCEND' })
+				})
+			}
+			incrementAsyncEl.addEventListener('click', function() {
+				store.dispatch(AsyncMethod)
+			}, false)
+
+
+			// 状态改变监听store.subscribe
+			function render() {
+				valueEl.innerHTML = store.getState().x
+				asyncMsgEl.innerHTML = store.getState().asyncMsg
+			}
+			render()
+			store.subscribe(render)
+		</script>
+	</body>
+</html>
